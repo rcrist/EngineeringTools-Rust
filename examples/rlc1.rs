@@ -13,7 +13,7 @@ struct Resistor {
 }
 
 impl Resistor {
-    fn Z(&self) -> f64 {
+    fn res_z(&self) -> f64 {
         let z = self.value;
         z
     }
@@ -27,7 +27,7 @@ struct Inductor {
 }
 
 impl Inductor {
-    fn Z(&self) -> Complex<f64> {
+    fn ind_z(&self) -> Complex<f64> {
         let z = Complex::new(0.0, 1.0 / (2.0 * PI * self.frequency * self.value));
         z
     }
@@ -41,7 +41,7 @@ struct Capacitor {
 }
 
 impl Capacitor {
-    fn Z(&self) -> Complex<f64> {
+    fn cap_z(&self) -> Complex<f64> {
         let z = Complex::new(0.0, -1.0 * (2.0 * PI * self.frequency * self.value));
         z
     }
@@ -50,9 +50,9 @@ impl Capacitor {
 // Run the analysis
 fn main() {
     let r1 = Resistor { value: 75.0 };
-    let Zr1 = r1.Z();
-    let ABCD1 = arr2(&[
-        [Complex::new(1.0, 0.0), Complex::new(Zr1, 0.0)],
+    let z_r1 = r1.res_z();
+    let abcd_r1 = arr2(&[
+        [Complex::new(1.0, 0.0), Complex::new(z_r1, 0.0)],
         [Complex::new(0.0, 0.0), Complex::new(1.0, 0.0)],
     ]);
 
@@ -60,9 +60,9 @@ fn main() {
         value: 5e-9,
         frequency: 2e9,
     };
-    let Zl1 = l1.Z();
-    let ABCD2 = arr2(&[
-        [Complex::new(1.0, 0.0), Zl1],
+    let z_l1 = l1.ind_z();
+    let abcd_l1 = arr2(&[
+        [Complex::new(1.0, 0.0), z_l1],
         [Complex::new(0.0, 0.0), Complex::new(1.0, 0.0)],
     ]);
 
@@ -70,9 +70,9 @@ fn main() {
         value: 1e-12,
         frequency: 2e9,
     };
-    let Zc1 = c1.Z();
-    let ABCD3 = arr2(&[
-        [Complex::new(1.0, 0.0), Zc1],
+    let z_c1 = c1.cap_z();
+    let abcd_c1 = arr2(&[
+        [Complex::new(1.0, 0.0), z_c1],
         [Complex::new(0.0, 0.0), Complex::new(1.0, 0.0)],
     ]);
 
@@ -83,8 +83,8 @@ fn main() {
     println!("C1 = {:#?}\n", c1);
 
     // Multiply cascaded component ABCD matrices
-    let mut ABCD = ABCD1.dot(&ABCD2);
-    ABCD = ABCD.dot(&ABCD3);
+    let mut abcd_ckt = abcd_r1.dot(&abcd_l1);
+    abcd_ckt = abcd_ckt.dot(&abcd_c1);
 
     // println!("{:#?}", &ABCD);
     // println!("{}", &ABCD);
@@ -93,26 +93,26 @@ fn main() {
     // https://www.rfwireless-world.com/Terminology/abcd-matrix-vs-s-matrix.html
 
     // S-parameter matrix
-    let mut S = arr2(&[
+    let mut s = arr2(&[
         [Complex::new(0.0, 0.0), Complex::new(0.0, 0.0)],
         [Complex::new(0.0, 0.0), Complex::new(0.0, 0.0)],
     ]);
 
     // Define A, B, C, D & denominator from the ABCD matrix
-    let A: Complex<f64> = ABCD[[0, 0]];
-    let B: Complex<f64> = ABCD[[0, 1]];
-    let C: Complex<f64> = ABCD[[1, 0]];
-    let D: Complex<f64> = ABCD[[1, 1]];
+    let a: Complex<f64> = abcd_ckt[[0, 0]];
+    let b: Complex<f64> = abcd_ckt[[0, 1]];
+    let c: Complex<f64> = abcd_ckt[[1, 0]];
+    let d: Complex<f64> = abcd_ckt[[1, 1]];
 
-    let denom: Complex<f64> = &A + &B / 50.0 + &C * 50.0 + &D;
+    let denom: Complex<f64> = &a + &b / 50.0 + &c * 50.0 + &c;
 
     // S-parmater equations from ABCD matrix
-    S[[0, 0]] = (&A + &B / 50.0 - &C * 50.0 - &D) / &denom;
-    S[[0, 1]] = 2.0 * (&A * &D - &B * &C) / &denom;
-    S[[1, 0]] = 2.0 / &denom;
-    S[[1, 1]] = (-&A + &B / 50.0 - &C * 50.0 + &D) / &denom;
+    s[[0, 0]] = (&a + &b / 50.0 - &c * 50.0 - &d) / &denom;
+    s[[0, 1]] = 2.0 * (&a * &d - &b * &c) / &denom;
+    s[[1, 0]] = 2.0 / &denom;
+    s[[1, 1]] = (-&a + &b / 50.0 - &c * 50.0 + &d) / &denom;
 
     // Final S-parameter results
     println!("S-parameters:");
-    println!("{}", &S);
+    println!("{}", &s);
 }
